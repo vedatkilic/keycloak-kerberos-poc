@@ -1,0 +1,41 @@
+services:
+  kdc:
+    build: ./kdc
+    container_name: poc-kdc
+    hostname: kdc.bank.local
+    ports:
+      - "88:88"
+      - "88:88/udp"
+    volumes:
+      - keytabs:/keytabs
+    networks:
+      poc:
+        aliases: [kdc.bank.local]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7
+    container_name: poc-keycloak
+    hostname: keycloak.bank.local
+    # jwt-authorization-grant: RFC 7523 JWT Bearer grant. WCF/harici backend kendi
+    # private key'iyle imzaladigi JWT'yi (assertion) token endpoint'e gonderir,
+    # Keycloak dogrulayip gercek bir access token doner. (Keycloak 26.5+ ozelligi.)
+    command: start-dev --features=jwt-authorization-grant
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KRB5_CONFIG: /etc/krb5-poc.conf
+    ports:
+      - "8080:8080"
+    volumes:
+      - keytabs:/keytabs:ro
+      - ./keycloak/krb5.conf:/etc/krb5-poc.conf:ro
+    depends_on: [kdc]
+    networks:
+      poc:
+        aliases: [keycloak.bank.local]
+
+volumes:
+  keytabs:
+
+networks:
+  poc:

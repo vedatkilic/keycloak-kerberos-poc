@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <!-- NOTE: This project only builds on Windows; it lives in the repo as the
+         reference code for the production client. The Mac demo uses ConsoleClient. -->
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="IdentityModel.OidcClient" Version="6.0.*" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.*" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,5 @@
+bin/
+obj/
+*.user
+client-mac/krb5-client.conf
+.DS_Store
