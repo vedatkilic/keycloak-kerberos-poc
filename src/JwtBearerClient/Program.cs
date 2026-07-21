@@ -16,7 +16,7 @@ var realmIssuer = kcBase.Replace("/protocol/openid-connect", "");
 var apiBase  = Environment.GetEnvironmentVariable("API_BASE") ?? "http://localhost:5080";
 
 var issuer   = Environment.GetEnvironmentVariable("WCF_ISSUER") ?? "https://token-issuer.bank.local";
-var subject  = Environment.GetEnvironmentVariable("WCF_SUBJECT") ?? "wcf-vedat-001"; // external user id
+var subject  = Environment.GetEnvironmentVariable("WCF_SUBJECT") ?? "wcf-user-001"; // external user id
 var clientId = "boa-wcf";
 var secret   = Environment.GetEnvironmentVariable("CLIENT_SECRET") ?? "wcf-demo-secret";
 var keyId    = "wcf-demo-key";

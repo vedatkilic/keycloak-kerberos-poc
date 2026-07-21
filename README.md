@@ -64,7 +64,8 @@ no Kerberos:
 Keycloak validates the signature against the `wcf-issuer` identity provider and resolves the
 asserted user through a federated-identity link. `setup-realm.sh` already registered the demo
 public key (`pki/wcf-issuer.pub`), created the confidential `boa-wcf` client, and linked user
-`vedat` to the external subject `wcf-vedat-001`.
+`wcf-user` to the external subject `wcf-user-001`. (A separate user from the Kerberos demo's
+`vedat`, so the two flows do not collide over one username.)
 
     # Backend running (validates the issued token)
     (cd src/BackendApi && dotnet run)
@@ -73,7 +74,7 @@ public key (`pki/wcf-issuer.pub`), created the confidential `boa-wcf` client, an
     cd src/JwtBearerClient && dotnet run
 
 Expected output: the assertion is signed, a Keycloak access token comes back (`aud=boa-api`),
-and `/api/hello` responds with `vedat`. This flow uses `keycloak.bank.local` as well, so the
+and `/api/hello` responds with `wcf-user`. This flow uses `keycloak.bank.local` as well, so the
 `/etc/hosts` entry from `setup-mac.sh` is required (the issued token's issuer must match the
 backend's configured authority). Override `KC_BASE`/`API_BASE` to point elsewhere.
 
@@ -86,10 +87,12 @@ backend's configured authority). Override `KC_BASE`/`API_BASE` to point elsewher
 | 200 / login form in the console | Is `klist` empty? Was `kinit vedat` run? Was `KRB5_CONFIG` exported? |
 | `Server not found in Kerberos database` | The /etc/hosts entry and access via `keycloak.bank.local` (not the IP) |
 | Keycloak log: keytab error | `docker compose down -v && up --build` (refreshes the keytab volume) |
+| Keycloak log: `Cannot locate KDC` | Keycloak's Java reads `/etc/krb5.conf` (mounted in docker-compose.yml), not `KRB5_CONFIG` |
+| Kerberos: `302 but no code` (`execution=VERIFY_PROFILE`) | The imported user has no profile; `setup-realm.sh` disables the VERIFY_PROFILE required action — re-run it |
 | .NET not producing Negotiate | Get the GSS trace with `KRB5_TRACE=/dev/stdout dotnet run` |
 | Chrome showing the form | `defaults read com.google.Chrome AuthServerAllowlist` + restart Chrome |
 | JWT Bearer: `invalid_grant` / `Invalid signature` | Did `setup-realm.sh` run? Does `pki/wcf-issuer.pub` match the key that signed the assertion? |
-| JWT Bearer: `invalid_grant` (user) | The asserted `sub` must be linked to `wcf-issuer` (setup-realm links `vedat` ↔ `wcf-vedat-001`) |
+| JWT Bearer: `invalid_grant` (user) | The asserted `sub` must be linked to `wcf-issuer` (setup-realm links `wcf-user` ↔ `wcf-user-001`) |
 
 ## Mapping to production
 | PoC (this repo) | Production (bank) |

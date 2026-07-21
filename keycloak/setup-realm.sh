@@ -30,21 +30,21 @@ else
     -s 'config.publicKeySignatureVerifierKeyId=wcf-demo-key'
 fi
 
-echo ">> JWT Bearer: demo user vedat linked to wcf-issuer (external sub=wcf-vedat-001)"
-# Must run BEFORE the Kerberos federation below: while that federation is active every
-# username lookup probes the KDC, and that probe blocks admin user creation.
-if $KC get users -r bank -q username=vedat --fields id --format csv --noquotes 2>/dev/null | grep -q .; then
+echo ">> JWT Bearer: demo user wcf-user linked to wcf-issuer (external sub=wcf-user-001)"
+# A DISTINCT username on purpose: the Kerberos SSO flow imports its own user 'vedat'
+# from the KDC principal, so the JWT Bearer demo user must not collide with it.
+if $KC get users -r bank -q username=wcf-user --fields id --format csv --noquotes 2>/dev/null | grep -q .; then
   echo "   (user already exists)"
 else
-  $KC create users -r bank -s username=vedat -s enabled=true \
-    -s email=vedat@bank.local -s emailVerified=true -s firstName=Vedat -s lastName=Demo
+  $KC create users -r bank -s username=wcf-user -s enabled=true \
+    -s email=wcf-user@bank.local -s emailVerified=true -s firstName=WCF -s lastName=Service
 fi
-VUID=$($KC get users -r bank -q username=vedat --fields id --format csv --noquotes | head -1)
-if $KC get users/$VUID/federated-identity -r bank 2>/dev/null | grep -q wcf-issuer; then
+WUID=$($KC get users -r bank -q username=wcf-user --fields id --format csv --noquotes | head -1)
+if $KC get users/$WUID/federated-identity -r bank 2>/dev/null | grep -q wcf-issuer; then
   echo "   (link already exists)"
 else
-  $KC create users/$VUID/federated-identity/wcf-issuer -r bank \
-    -s identityProvider=wcf-issuer -s userId=wcf-vedat-001 -s userName=vedat
+  $KC create users/$WUID/federated-identity/wcf-issuer -r bank \
+    -s identityProvider=wcf-issuer -s userId=wcf-user-001 -s userName=wcf-user
 fi
 
 echo ">> Kerberos user federation"
@@ -108,5 +108,10 @@ $KC create clients/$WCFID/protocol-mappers/models -r bank \
 echo ">> Browser flow adjustment: setting the Kerberos execution to ALTERNATIVE"
 FLOWEXEC=$($KC get authentication/flows/browser/executions -r bank --format csv --fields id,providerId --noquotes | grep auth-spnego | cut -d, -f1)
 $KC update authentication/flows/browser/executions -r bank -b "{\"id\":\"$FLOWEXEC\",\"requirement\":\"ALTERNATIVE\"}"
+
+echo ">> Disable VERIFY_PROFILE required action"
+# Kerberos-imported users have no profile form in this demo; otherwise the SSO flow gets
+# redirected to a "complete your profile" page instead of returning the authorization code.
+$KC update authentication/required-actions/VERIFY_PROFILE -r bank -s enabled=false || echo "   (skip)"
 
 echo ">> Done. Test: http://keycloak.bank.local:8080/realms/bank/account"

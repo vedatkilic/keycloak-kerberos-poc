@@ -28,6 +28,9 @@ services:
       - "8080:8080"
     volumes:
       - keytabs:/keytabs:ro
+      # Keycloak'in Java Kerberos yigini KRB5_CONFIG env'ini degil, standart
+      # /etc/krb5.conf yolunu okur; KDC'yi bulabilmesi icin oraya da mount ediyoruz.
+      - ./keycloak/krb5.conf:/etc/krb5.conf:ro
       - ./keycloak/krb5.conf:/etc/krb5-poc.conf:ro
     depends_on: [kdc]
     networks:
