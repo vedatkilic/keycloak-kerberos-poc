@@ -1,16 +1,19 @@
 [English](README.md) · **Türkçe**
 
-# Keycloak Kerberos SSO — PoC (macOS / Linux / Windows)
+# Keycloak Kerberos SSO — PoC
 
 Uçtan uca **parolasız (Kerberos SSO) Keycloak entegrasyonunu** gösteren bir demo. İstemci kodu
-(ConsoleClient, WpfClient) ve akışın tamamı **macOS, Linux ve Windows'ta** aynı şekilde çalışır —
-zaten Windows asıl production hedefidir. Başlıktaki `(macOS / Linux / Windows)` notu yalnızca Docker
-demo harness'ının üçünde de denendiğini belirtir; burada macOS/Linux'a özgü hiçbir şey yoktur.
+(ConsoleClient, WpfClient) ve akışın tamamı platform bağımsızdır — macOS, Linux ve Windows'ta aynı
+şekilde çalışır; zaten Windows asıl production hedefidir.
 
 Demo, Windows domain ortamı olmadan da çalıştırılabilir: Windows'ta "kullanıcının sabah domain'e login
-olması" ne ise, burada `kinit` odur; akışın geri kalanı production ile aynı protokolü kullanır. Gerçek,
-domain'e katılı bir Windows PC'de `kinit`'i tamamen atlarsınız — bkz.
-[Domain'e katılı bir Windows PC'den test](#domaine-katılı-bir-windows-pcden-test-zaten-login-olmuş-kullanıcı).
+olması" ne ise, burada `kinit` odur; akışın geri kalanı production ile aynı protokolü kullanır.
+
+> **Windows kullanıcıları:** *gerçek bir Windows domain kullanıcısıyla* login denemek istiyorsanız
+> (gerçek, parolasız SSO testi), bu repodaki Docker PoC tek başına yeterli değildir — Active
+> Directory'nizin tanımadığı ayrı bir `BANK.LOCAL` realm'i kullanır. İstemciyi **kendi AD'nize federe**
+> edilmiş bir Keycloak'a yöneltmeniz gerekir. Tam tarif:
+> [Domain'e katılı bir Windows PC'den test](#domaine-katılı-bir-windows-pcden-test-zaten-login-olmuş-kullanıcı).
 
     Mac (istemci: kinit + .NET console / Chrome)
         |-- :88  Kerberos ------> KDC (Docker, MIT Kerberos)
@@ -232,6 +235,11 @@ Domain kullanıcısı olarak çalıştırıldığında parola sorulmadan token g
 
 ### Domain'e katılı bir Windows PC'den test (zaten login olmuş kullanıcı)
 
+> **Yalnız Windows kullanıcıları için.** *Gerçek bir Windows domain kullanıcısıyla* login denemek ve
+> **hiç parola sorulmadan** token almak istiyorsanız bu bölümü okuyun. Bu, kurumsal senaryodur.
+> Yukarıdaki macOS/Linux demosu domain login'ini `kinit` ile taklit eder; burada Windows oturumunuz
+> *login'in kendisidir*, `kinit` yoktur.
+
 "Windows'a domain hesabımla zaten login oldum — sadece çalıştırıp parolasız token alabilir miyim?"
 Cevap **hangi Keycloak'a bağlandığına** göre değişir, çünkü Windows login'iniz size **yalnızca kendi
 AD domain'iniz** için bir Kerberos TGT verir.
@@ -245,13 +253,41 @@ klist                :: önbellekteki biletler: bir krbtgt/CORP.EXAMPLE.COM kayd
 ```
 
 **A) *Sizin* AD'nize federe edilmiş bir Keycloak'a karşı — gerçek, parolasız test.** Mevcut login'inizin
-gerçekten sıfır-istem SSO ürettiği tek kurulum budur. Sunucu tarafında şunları gerektirir: Keycloak'ın
-AD'nize LDAP + Kerberos federation ile bağlı olması (`serverPrincipal`/keytab'ı *sizin* realm'iniz için,
-ör. `HTTP/keycloak.corp.example.com@CORP.EXAMPLE.COM`), Keycloak host'u için AD'de kayıtlı bir SPN ve
-Keycloak FQDN'inin makinenizin tarayıcı Negotiate allowlist'inde olması. Sonra doğrulayın (parola
-beklenmiyor):
+gerçekten sıfır-istem SSO ürettiği tek kurulum budur. PoC'nin `setup-realm.sh`'i demo `BANK.LOCAL`
+KDC'sine federe olur; gerçek bir Windows domain kullanıcısının login olabilmesi için Keycloak'ı bunun
+yerine *sizin* AD'nize yöneltirsiniz. Tam tarif (sunucu + istemci); `CORP.EXAMPLE.COM` /
+`keycloak.corp.example.com` yerine kendi realm ve host'unuzu koyun:
+
+**Sunucu tarafı — bir kez yapılır (AD/domain admin gerekir):**
+1. **AD'de Keycloak host'u için bir servis hesabı + SPN + keytab oluşturun.** Bir Domain Controller ya
+   da admin iş istasyonunda:
+   ```
+   :: Keycloak'ın SPN'ini üzerinde taşıyacağı servis hesabı (AES256)
+   New-ADUser -Name svc-keycloak -Enabled $true -KerberosEncryptionType AES256 ^
+              -AccountPassword (Read-Host -AsSecureString)
+   :: HTTP SPN'ini bu hesaba kaydedin
+   setspn -S HTTP/keycloak.corp.example.com svc-keycloak
+   :: Keycloak'ın SPNEGO biletlerini çözmek için kullanacağı keytab'ı dışa aktarın
+   ktpass -princ HTTP/keycloak.corp.example.com@CORP.EXAMPLE.COM -mapuser svc-keycloak ^
+          -crypto AES256-SHA1 -ptype KRB5_NT_PRINCIPAL -pass * -out keycloak.keytab
+   ```
+2. **Keycloak'ta user federation yapılandırın** (Admin Console → *User federation*). Bu, `setup-realm.sh`'in
+   oluşturduğu aynı `kerberos` bileşenidir, ama sizin realm'inize yönelmiş — genellikle bir **LDAP**
+   provider'ıyla birlikte (kullanıcılar AD'den çözülsün diye), *Allow Kerberos authentication* açık:
+   - `Kerberos realm` = `CORP.EXAMPLE.COM`
+   - `Server principal` = `HTTP/keycloak.corp.example.com@CORP.EXAMPLE.COM`
+   - `KeyTab` = 1. adımdaki `keycloak.keytab`'ın yolu (Keycloak host'una/container'ına mount edilmiş)
+3. **Keycloak host'unun `/etc/krb5.conf`'unu `CORP.EXAMPLE.COM` için sizin AD KDC'lerinize yöneltin**
+   (PoC'de bu dosya `docker-compose.yml` ile mount edilir; production'da domain controller'larınızı listeler).
+
+**İstemci tarafı — Windows PC'de:**
+- Makine **domain'e katılı** ve kullanıcı AD hesabıyla login olmuş ("login" budur).
+- Keycloak FQDN'i çözülüyor (DNS) ve **tarayıcı Negotiate allowlist**'inde (production'da GPO, ya da
+  test için aşağıdaki makine-başı `reg add`).
+
+**Sonra doğrulayın — parola beklenmiyor:**
 ```
-:: 1) Keycloak'ın SPN'i için servis bileti alabiliyor musunuz? (SPN var ve erişilebilir mi kanıtlar)
+:: 1) Keycloak'ın SPN'i için servis bileti alabiliyor musunuz? (SPN + keytab + erişilebilirlik kanıtı)
 klist get HTTP/keycloak.corp.example.com
 
 :: 2) Tarayıcı testi — Edge/Chrome, account console'u login formu OLMADAN açar

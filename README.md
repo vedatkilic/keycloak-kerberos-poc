@@ -1,16 +1,19 @@
 **English** · [Türkçe](README.tr.md)
 
-# Keycloak Kerberos SSO — PoC (macOS / Linux / Windows)
+# Keycloak Kerberos SSO — PoC
 
 A demo that shows **passwordless (Kerberos SSO) Keycloak integration** end to end. The client code
-(ConsoleClient, WpfClient) and the whole flow run on **macOS, Linux, and Windows** alike — Windows is
-in fact the production target. The `(macOS / Linux / Windows)` note only means the Docker demo harness
-has been exercised on all three; nothing here is macOS/Linux-only.
+(ConsoleClient, WpfClient) and the whole flow are cross-platform — they run on macOS, Linux, and
+Windows alike, and Windows is in fact the production target.
 
 The demo can be run without a Windows domain environment: what "the user logging into the domain in the
-morning" is on Windows, `kinit` is here; the rest of the flow uses the same protocol as production. On
-a real domain-joined Windows PC you skip `kinit` entirely — see
-[Testing from a domain-joined Windows PC](#testing-from-a-domain-joined-windows-pc-already-logged-in).
+morning" is on Windows, `kinit` is here; the rest of the flow uses the same protocol as production.
+
+> **Windows users:** if you want to actually try logging in with a *real Windows domain user* (a true
+> zero-password SSO test), the Docker PoC in this repo is not enough on its own — it uses a separate
+> `BANK.LOCAL` realm that your Active Directory does not know. You need to point the client at a
+> Keycloak **federated to your own AD**. That full recipe is in
+> [Testing from a domain-joined Windows PC](#testing-from-a-domain-joined-windows-pc-already-logged-in).
 
     Mac (client: kinit + .NET console / Chrome)
         |-- :88  Kerberos ------> KDC (Docker, MIT Kerberos)
@@ -235,6 +238,11 @@ Run as a domain user, a token comes back without a password prompt.
 
 ### Testing from a domain-joined Windows PC (already logged in)
 
+> **For Windows users only.** Read this section if you want to try logging in with a *real Windows
+> domain user* and get a token with **no password prompt at all**. This is the enterprise scenario.
+> The macOS/Linux demo above fakes the domain login with `kinit`; here your Windows session *is* the
+> login, and no `kinit` is involved.
+
 "I'm already logged into Windows with my domain account — can I just run it and get a token with no
 password?" The answer depends on **which Keycloak you point at**, because your Windows login gives you
 a Kerberos TGT **for your own AD domain only**.
@@ -248,12 +256,41 @@ klist                :: cached tickets: you should see a krbtgt/CORP.EXAMPLE.COM
 ```
 
 **A) Against a Keycloak federated to *your* AD — the real, passwordless test.** This is the only setup
-where your existing login produces true zero-prompt SSO. Server-side it requires: Keycloak bound to
-your AD via LDAP + Kerberos federation (its `serverPrincipal`/keytab is for *your* realm, e.g.
-`HTTP/keycloak.corp.example.com@CORP.EXAMPLE.COM`), an SPN registered in AD for the Keycloak host, and
-the Keycloak FQDN on your machine's browser Negotiate allowlist. Then verify (no password expected):
+where your existing login produces true zero-prompt SSO. The PoC's `setup-realm.sh` federates to the
+demo `BANK.LOCAL` KDC; to let a real Windows domain user log in, you point Keycloak at *your* AD instead.
+The full recipe (server + client), replacing `CORP.EXAMPLE.COM` / `keycloak.corp.example.com` with your
+own realm and host:
+
+**Server side — do this once (needs an AD/domain admin):**
+1. **Create a service account + SPN + keytab in AD** for the Keycloak host. On a Domain Controller or an
+   admin workstation:
+   ```
+   :: Service account Keycloak will run its SPN as (AES256)
+   New-ADUser -Name svc-keycloak -Enabled $true -KerberosEncryptionType AES256 ^
+              -AccountPassword (Read-Host -AsSecureString)
+   :: Register the HTTP SPN on that account
+   setspn -S HTTP/keycloak.corp.example.com svc-keycloak
+   :: Export a keytab Keycloak will use to decrypt the SPNEGO tickets
+   ktpass -princ HTTP/keycloak.corp.example.com@CORP.EXAMPLE.COM -mapuser svc-keycloak ^
+          -crypto AES256-SHA1 -ptype KRB5_NT_PRINCIPAL -pass * -out keycloak.keytab
+   ```
+2. **Configure user federation in Keycloak** (Admin Console → *User federation*). This is the same
+   `kerberos` component `setup-realm.sh` creates, but pointed at your realm — usually combined with an
+   **LDAP** provider (so users resolve from AD) with *Allow Kerberos authentication* on:
+   - `Kerberos realm` = `CORP.EXAMPLE.COM`
+   - `Server principal` = `HTTP/keycloak.corp.example.com@CORP.EXAMPLE.COM`
+   - `KeyTab` = path to the `keycloak.keytab` from step 1 (mounted into the Keycloak host/container)
+3. **Point the Keycloak host's `/etc/krb5.conf` at your AD KDCs** for `CORP.EXAMPLE.COM` (in the PoC this
+   file is mounted via `docker-compose.yml`; in production it lists your domain controllers).
+
+**Client side — on the Windows PC:**
+- The machine is **domain-joined** and the user is logged in with their AD account (that is the "login").
+- The Keycloak FQDN resolves (DNS) and is on the **browser Negotiate allowlist** (GPO in production, or
+  the quick per-machine `reg add` below for a test).
+
+**Then verify — no password expected:**
 ```
-:: 1) Can you get a service ticket for Keycloak's SPN? (proves the SPN exists and is reachable)
+:: 1) Can you get a service ticket for Keycloak's SPN? (proves the SPN + keytab + reachability)
 klist get HTTP/keycloak.corp.example.com
 
 :: 2) Browser test — Edge/Chrome opens the account console with NO login form
