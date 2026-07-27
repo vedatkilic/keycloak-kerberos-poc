@@ -1,10 +1,16 @@
 **English** · [Türkçe](README.tr.md)
 
-# Keycloak Kerberos SSO — PoC (macOS / Linux)
+# Keycloak Kerberos SSO — PoC (macOS / Linux / Windows)
 
-A demo that shows **passwordless (Kerberos SSO) Keycloak integration** end to end,
-without a Windows domain environment. What "the user logging into the domain in the morning"
-is on Windows, `kinit` is here; the rest of the flow uses the same protocol as production.
+A demo that shows **passwordless (Kerberos SSO) Keycloak integration** end to end. The client code
+(ConsoleClient, WpfClient) and the whole flow run on **macOS, Linux, and Windows** alike — Windows is
+in fact the production target. The `(macOS / Linux / Windows)` note only means the Docker demo harness
+has been exercised on all three; nothing here is macOS/Linux-only.
+
+The demo can be run without a Windows domain environment: what "the user logging into the domain in the
+morning" is on Windows, `kinit` is here; the rest of the flow uses the same protocol as production. On
+a real domain-joined Windows PC you skip `kinit` entirely — see
+[Testing from a domain-joined Windows PC](#testing-from-a-domain-joined-windows-pc-already-logged-in).
 
     Mac (client: kinit + .NET console / Chrome)
         |-- :88  Kerberos ------> KDC (Docker, MIT Kerberos)

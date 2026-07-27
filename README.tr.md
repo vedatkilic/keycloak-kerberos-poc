@@ -1,10 +1,16 @@
 [English](README.md) · **Türkçe**
 
-# Keycloak Kerberos SSO — PoC (macOS / Linux)
+# Keycloak Kerberos SSO — PoC (macOS / Linux / Windows)
 
-Windows domain ortamı olmadan, uçtan uca **parolasız (Kerberos SSO) Keycloak entegrasyonunu**
-gösteren bir demo. Windows'ta "kullanıcının sabah domain'e login olması" ne ise, burada `kinit`
-odur; akışın geri kalanı production ile aynı protokolü kullanır.
+Uçtan uca **parolasız (Kerberos SSO) Keycloak entegrasyonunu** gösteren bir demo. İstemci kodu
+(ConsoleClient, WpfClient) ve akışın tamamı **macOS, Linux ve Windows'ta** aynı şekilde çalışır —
+zaten Windows asıl production hedefidir. Başlıktaki `(macOS / Linux / Windows)` notu yalnızca Docker
+demo harness'ının üçünde de denendiğini belirtir; burada macOS/Linux'a özgü hiçbir şey yoktur.
+
+Demo, Windows domain ortamı olmadan da çalıştırılabilir: Windows'ta "kullanıcının sabah domain'e login
+olması" ne ise, burada `kinit` odur; akışın geri kalanı production ile aynı protokolü kullanır. Gerçek,
+domain'e katılı bir Windows PC'de `kinit`'i tamamen atlarsınız — bkz.
+[Domain'e katılı bir Windows PC'den test](#domaine-katılı-bir-windows-pcden-test-zaten-login-olmuş-kullanıcı).
 
     Mac (istemci: kinit + .NET console / Chrome)
         |-- :88  Kerberos ------> KDC (Docker, MIT Kerberos)
