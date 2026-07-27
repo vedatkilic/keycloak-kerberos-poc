@@ -37,6 +37,12 @@ Two passwordless methods are demonstrated against the same backend:
 
 ## Demo flow
 
+> This is the macOS/Linux demo path. Step 2 (`kinit vedat`) simulates the moment you log into
+> Windows in the morning. **On Windows this step differs:** against the Docker PoC (`BANK.LOCAL`)
+> you still `kinit` by hand (your AD does not know that realm); against a Keycloak federated to
+> your own AD you skip it entirely — your domain login already provided the ticket. See
+> [Testing from a domain-joined Windows PC](#testing-from-a-domain-joined-windows-pc-already-logged-in).
+
     export KRB5_CONFIG=$PWD/client-mac/krb5-client.conf
 
     # 1) We have not "logged in" yet -> the flow falls back to the login form (proof of fallback)

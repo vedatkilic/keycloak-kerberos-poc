@@ -37,6 +37,12 @@ Aynı backend'e karşı iki parolasız yöntem gösterilir:
 
 ## Demo akışı
 
+> Bu, macOS/Linux demo yoludur. 2. adım (`kinit vedat`), sabah Windows'a login olma anını taklit
+> eder. **Windows'ta bu adım değişir:** Docker PoC'ye (`BANK.LOCAL`) karşı yine el ile `kinit`
+> yaparsın (AD'n o realm'i tanımaz); kendi AD'ne federe bir Keycloak'a karşı ise bu adımı tamamen
+> atlarsın — domain login'in bileti zaten verdi. Bkz.
+> [Domain'e katılı bir Windows PC'den test](#domaine-katılı-bir-windows-pcden-test-zaten-login-olmuş-kullanıcı).
+
     export KRB5_CONFIG=$PWD/client-mac/krb5-client.conf
 
     # 1) Henüz "login" olmadık -> akış login formuna düşer (fallback kanıtı)
